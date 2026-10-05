@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Generated ML models
+models/*.pkl
+models/*.joblib
+
+# Temporary files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
