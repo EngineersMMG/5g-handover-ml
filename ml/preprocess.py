@@ -26,3 +26,13 @@ print(
         ]
     ]
 )
+
+output_path = "data/processed/handover-processed.csv"
+
+data.to_csv(output_path, index=False)
+
+print("\n Processed dataset saved to: ")
+print(output_path)
+
+print("\n Target distribution")
+print(data["handover_next_1s"].value_counts())
