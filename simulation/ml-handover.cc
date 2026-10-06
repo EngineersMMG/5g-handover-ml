@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <string>
 
 using namespace ns3;
 
@@ -134,9 +135,26 @@ void ReportUeMeasurementsCallback (uint16_t rnti, uint16_t cellId, double rsrp, 
 
 int main (int argc, char* argv[])
 {
+    double ueSpeed = 10.0;
+
+    CommandLine cmd(__FILE__);
+
+    std::string outputFile = "handover-data.csv";
+
+    double startX = 50.0;
+
+    double simTime = 60.0;
+
+    cmd.AddValue("speed", "UE movement speed in meters per second", ueSpeed);
+    cmd.AddValue("output", "Name of the CSV output file", outputFile);
+    cmd.AddValue("startX", "Initial UE x position in meters", startX);
+    cmd.AddValue("simTime", "Simulation duration in seconds", simTime);
+
+    cmd.Parse(argc, argv);
+
     std::cout << "Starting ML 5G simulation..." << std::endl;
 
-    dataFile.open("handover-data.csv");
+    dataFile.open(outputFile);
     dataFile << "time_s,ue_x_m,speed_mps,serving_cell,"
              << "serving_rsrp,neighbor_rsrp,"
              << "serving_rsrq,neighbor_rsrq,"
@@ -168,8 +186,8 @@ int main (int argc, char* argv[])
 
     Ptr<ConstantVelocityMobilityModel> ueModel = ueNodes.Get(0)->GetObject<ConstantVelocityMobilityModel>();
     
-    ueModel->SetPosition(Vector(50.0, 0.0, 1.5));
-    ueModel->SetVelocity(Vector(10.0, 0.0, 0.0));
+    ueModel->SetPosition(Vector(startX, 0.0, 1.5));
+    ueModel->SetVelocity(Vector(ueSpeed, 0.0, 0.0));
 
     Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     
@@ -273,7 +291,7 @@ int main (int argc, char* argv[])
 
     Simulator::Schedule(Seconds(0.0), &PrintUePosition, ueModel);
 
-    Simulator::Stop(Seconds(40.0));
+    Simulator::Stop(Seconds(simTime));
     Simulator::Run();
     Simulator::Destroy();
     
