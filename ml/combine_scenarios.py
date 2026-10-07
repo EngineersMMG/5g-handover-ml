@@ -8,8 +8,13 @@ output_file = Path("data/processed/combined-scenarios.csv")
 csv_files = list(input_dir.glob("*.csv"))
 
 def scenario_sort_key(path):
-    match = re.search(r"speed(\d+)_start(\d+)", path.stem)
-    return int(match.group(1)), int(match.group(2))
+    match = re.search(r"speed(\d+)_start(\d+)_dist(\d+)", path.stem)
+
+    speed = int(match.group(1))
+    start_x = int(match.group(2))
+    gnb_distance = int(match.group(3))
+
+    return speed, start_x, gnb_distance
 
 csv_files = sorted(csv_files, key=scenario_sort_key)
 
@@ -19,12 +24,9 @@ seen_run_ids = set()
 for file_path in csv_files:
 
     match = re.search(
-        r"speed(\d+)_start(\d+)",
+        r"speed(\d+)_start(\d+)_dist(\d+)",
         file_path.stem
     )
-
-    speed = int(match.group(1))
-    start_x = int(match.group(2))
 
     data = pd.read_csv(file_path)
 
@@ -51,6 +53,7 @@ for file_path in csv_files:
 
     data["scenario_speed"] = speed
     data["scenario_start_x"] = start_x
+    data["scenario_gnb_distance"] = gnb_distance
 
     all_runs.append(data)
 

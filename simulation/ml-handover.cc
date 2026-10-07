@@ -143,6 +143,7 @@ int main (int argc, char* argv[])
     double simTime = 60.0;
     uint32_t runId = 1;
     double logInterval = 1.0;
+    double gNbDistance = 500.0;
 
     cmd.AddValue("speed", "UE movement speed in meters per second", ueSpeed);
     cmd.AddValue("output", "Name of the CSV output file", outputFile);
@@ -150,6 +151,7 @@ int main (int argc, char* argv[])
     cmd.AddValue("simTime", "Simulation duration in seconds", simTime);
     cmd.AddValue("runId", "Simulation run identifier", runId);
     cmd.AddValue("logInterval", "Dataset logging interval in seconds", logInterval);
+    cmd.AddValue("gNbDistance", "Distance between the two gNBs in meters", gNbDistance);
 
     cmd.Parse(argc, argv);
 
@@ -175,7 +177,7 @@ int main (int argc, char* argv[])
     Ptr<ListPositionAllocator> gNbPositions = CreateObject<ListPositionAllocator>();
 
     gNbPositions->Add(Vector(0.0, 0.0, 10.0));
-    gNbPositions->Add(Vector(500.0, 0.0, 10.0));
+    gNbPositions->Add(Vector(gNbDistance, 0.0, 10.0));
     
     gNbMobility.SetPositionAllocator(gNbPositions);
     gNbMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");

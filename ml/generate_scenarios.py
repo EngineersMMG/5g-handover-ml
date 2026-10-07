@@ -7,6 +7,8 @@ start_positions = [
     70, 80, 90, 100
     ]
 
+gnb_distances = [400, 450, 500, 550, 600]
+
 project_dir = Path.home() / "5g-handover-work" / "5g-handover-ml"
 ns3_dir = Path.home() / "5g-handover-work" / "ns-3-dev"
 
@@ -17,34 +19,40 @@ run_id = 1
 
 for speed in speeds:
     for start_x in start_positions:
+        for gnb_distance in gnb_distances:
 
-        filename = f"speed{speed}_start{start_x}.csv"
-        output_file = output_dir / filename
+            # Give the UE enough time to travel past the second gNB
+            simTime = ((gnb_distance + 50) - start_x) / speed
 
-        command = [
-            "./ns3",
-            "run",
-            (
-                f"scratch/ml-handover "
-                f"--speed={speed} "
-                f"--startX={start_x} "
-                f"--simTime=60 "
-                f"--runId={run_id} "
-                f"--output={output_file}"
-            ),
-        ]
+            filename = f"speed{speed}_start{start_x}_dist{gnb_distance}.csv"
+            output_file = output_dir / filename
 
-        print(
-            f"Running scenario: "
-            f"speed={speed} m/s, StartX={start_x} m"
-        )
+            command = [
+                "./ns3",
+                "run",
+                (
+                    f"scratch/ml-handover "
+                    f"--speed={speed} "
+                    f"--startX={start_x} "
+                    f"--simTime=60 "
+                    f"--runId={run_id} "
+                    f"--logInterval=0.2 "
+                    f"--gNbDistance={gnb_distance} "
+                    f"--output={output_file}"
+                ),
+            ]
 
-        subprocess.run(
-            command,
-            cwd=ns3_dir,
-            check=True,
-        )
+            print(
+                f"Running scenario: "
+                f"speed={speed} m/s, StartX={start_x} m, gNB distance={gnb_distance} m, simulation time={simTime:.2f} s"
+            )
 
-        run_id += 1
+            subprocess.run(
+                command,
+                cwd=ns3_dir,
+                check=True,
+            )
+
+            run_id += 1
 
 print ("\nAll scenarios finished.")

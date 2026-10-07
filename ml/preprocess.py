@@ -38,7 +38,7 @@ data.to_csv(output_path, index=False)
 print("Number of rows:", len(data))
 print("Number of runs:", data["run_id"].nunique())
 
-print("\n Target distribution")
+print("\nTarget distribution")
 print(data["handover_next_1s"].value_counts())
 
 print("\n Dataset saved to: ")
