@@ -14,8 +14,9 @@ def scenario_sort_key(path):
 csv_files = sorted(csv_files, key=scenario_sort_key)
 
 all_runs = []
+seen_run_ids = set()
 
-for run_id, file_path in enumerate(csv_files, start=1):
+for file_path in csv_files:
 
     match = re.search(
         r"speed(\d+)_start(\d+)",
@@ -27,7 +28,27 @@ for run_id, file_path in enumerate(csv_files, start=1):
 
     data = pd.read_csv(file_path)
 
-    data["run_id"] = run_id
+    if "run_id" not in data.columns:
+        raise ValueError(
+            f"{file_path.name} does not contain run_id"
+        )
+    
+    run_ids = data["run_id"].unique()
+
+    if len(run_ids) != 1:
+        raise ValueError(
+            f"{file_path.name} contains more than one run_id"
+        )
+    
+    run_id = int(run_ids[0])
+
+    if run_id in seen_run_ids:
+        raise ValueError(
+            f"Duplicate run_id found: {run_id}"
+        )
+    
+    seen_run_ids.add(run_id)
+
     data["scenario_speed"] = speed
     data["scenario_start_x"] = start_x
 
@@ -49,6 +70,7 @@ combined_data.to_csv(
 )
 
 print("Number of simulation run:", len(csv_files))
+print("Unique run IDs:", combined_data["run_id"].nunique())
 print("Total rows:", len(combined_data))
 
 print("\nRow per run:")

@@ -63,7 +63,7 @@ void PrintServingCell(Ptr<NrUeRrc> ueRrc)
     Simulator::Schedule(Seconds(5.0), &PrintServingCell, ueRrc);
 }
 
-void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRrc)
+void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRrc, uint32_t runId, double logInterval)
 {
     double time = Simulator::Now().GetSeconds();
     Vector position = ueModel->GetPosition();
@@ -101,7 +101,8 @@ void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRr
 
     double rsrpDifference = neighborRsrp - servingRsrp;
     
-    dataFile << time << ","
+    dataFile << runId << "," 
+             << time << ","
              << position.x << ","
              << speed << ","
              << servingCell << ","
@@ -116,7 +117,7 @@ void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRr
     handoverEvent = false;
     handoverTargetCell = 0;
     
-    Simulator::Schedule(Seconds(1.0), &LogDatasetRow, ueModel, ueRrc);
+    Simulator::Schedule(Seconds(logInterval), &LogDatasetRow, ueModel, ueRrc, runId, logInterval);
 }
 
 void ReportUeMeasurementsCallback (uint16_t rnti, uint16_t cellId, double rsrp, double rsrq, bool servingCell, uint8_t componentCarrierId)
@@ -136,26 +137,26 @@ void ReportUeMeasurementsCallback (uint16_t rnti, uint16_t cellId, double rsrp, 
 int main (int argc, char* argv[])
 {
     double ueSpeed = 10.0;
-
     CommandLine cmd(__FILE__);
-
     std::string outputFile = "handover-data.csv";
-
     double startX = 50.0;
-
     double simTime = 60.0;
+    uint32_t runId = 1;
+    double logInterval = 1.0;
 
     cmd.AddValue("speed", "UE movement speed in meters per second", ueSpeed);
     cmd.AddValue("output", "Name of the CSV output file", outputFile);
     cmd.AddValue("startX", "Initial UE x position in meters", startX);
     cmd.AddValue("simTime", "Simulation duration in seconds", simTime);
+    cmd.AddValue("runId", "Simulation run identifier", runId);
+    cmd.AddValue("logInterval", "Dataset logging interval in seconds", logInterval);
 
     cmd.Parse(argc, argv);
 
     std::cout << "Starting ML 5G simulation..." << std::endl;
 
     dataFile.open(outputFile);
-    dataFile << "time_s,ue_x_m,speed_mps,serving_cell,"
+    dataFile << "run_id,time_s,ue_x_m,speed_mps,serving_cell,"
              << "serving_rsrp,neighbor_rsrp,"
              << "serving_rsrq,neighbor_rsrq,"
              << "rsrp_difference,"
@@ -277,7 +278,7 @@ int main (int argc, char* argv[])
     //Connect the two gNBs for handover
     nrHelper->AddX2Interface(gNbNodes);
 
-    Simulator::Schedule(Seconds(1.0), &LogDatasetRow, ueModel,ueRrc);
+    Simulator::Schedule(Seconds(logInterval), &LogDatasetRow, ueModel,ueRrc, runId, logInterval);
 
     Simulator::Schedule(
     Seconds(1.0),
