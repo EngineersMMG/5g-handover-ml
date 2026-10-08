@@ -16,8 +16,3 @@ models/*.joblib
 # OS files
 .DS_Store
 Thumbs.db
-
-# Generated simulation datasets
-data/raw/scenarios/
-data/processed/combined-scenarios.csv
-data/processed/ml-dataset.csv
