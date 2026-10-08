@@ -159,6 +159,8 @@ int main (int argc, char* argv[])
 
     cmd.Parse(argc, argv);
 
+    RngSeedManager::SetRun(runId);
+
     std::cout << "Starting ML 5G simulation..." << std::endl;
 
     dataFile.open(outputFile);
@@ -220,9 +222,18 @@ int main (int argc, char* argv[])
     // Create the radio channel 
     Ptr <NrChannelHelper> channelHelper = CreateObject<NrChannelHelper>();
 
-    channelHelper->ConfigurePropagationFactory(FriisPropagationLossModel::GetTypeId());
+    channelHelper->ConfigureFactories(
+        "UMi",
+        "LOS",
+        "ThreeGpp");
+    
+    channelHelper->SetPathlossAttribute(
+        "ShadowingEnabled",
+        BooleanValue(true));
 
-    channelHelper->AssignChannelsToBands({band});
+    channelHelper->AssignChannelsToBands(
+        {band},
+        NrChannelHelper::INIT_PROPAGATION);
 
     // Get the bandwidth parts
     BandwidthPartInfoPtrVector allBwps = CcBwpCreator::GetAllBwps({band});
