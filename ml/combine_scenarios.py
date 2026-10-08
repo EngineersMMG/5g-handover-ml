@@ -8,13 +8,14 @@ output_file = Path("data/processed/combined-scenarios.csv")
 csv_files = list(input_dir.glob("*.csv"))
 
 def scenario_sort_key(path):
-    match = re.search(r"speed(\d+)_start(\d+)_dist(\d+)", path.stem)
+    match = re.search(r"speed(\d+)_start(\d+)_dist(\d+)_power([+-]\d+)", path.stem)
 
     speed = int(match.group(1))
     start_x = int(match.group(2))
     gnb_distance = int(match.group(3))
+    power_offset = int(match.group(4))
 
-    return speed, start_x, gnb_distance
+    return speed, start_x, gnb_distance, power_offset
 
 csv_files = sorted(csv_files, key=scenario_sort_key)
 
@@ -24,13 +25,16 @@ seen_run_ids = set()
 for file_path in csv_files:
 
     match = re.search(
-        r"speed(\d+)_start(\d+)_dist(\d+)",
+        r"speed(\d+)_start(\d+)_dist(\d+)_power([+-]\d+)",
         file_path.stem
     )
 
     speed = int(match.group(1))
     start_x = int(match.group(2))
     gnb_distance = int(match.group(3))
+    power_offset = int(match.group(4))
+    gnb1_power = 30
+    gnb2_power = 30 + power_offset
 
     data = pd.read_csv(file_path)
 
@@ -58,6 +62,9 @@ for file_path in csv_files:
     data["scenario_speed"] = speed
     data["scenario_start_x"] = start_x
     data["scenario_gnb_distance"] = gnb_distance
+    data["scenario_power_offset"] = power_offset
+    data["scenario_gnb1_tx_power"] = gnb1_power
+    data["scenario_gnb2_tx_power"] = gnb2_power
 
     all_runs.append(data)
 
