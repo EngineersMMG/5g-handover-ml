@@ -5,6 +5,7 @@
 #include "ns3/nr-module.h"
 #include "ns3/isotropic-antenna-model.h"
 #include "ns3/propagation-module.h"
+#include "ns3/applications-module.h"
 
 #include <iostream>
 #include <fstream>
@@ -19,6 +20,8 @@ double cell1Rsrp = 0.0;
 double cell2Rsrp = 0.0;
 double cell1Rsrq = 0.0;
 double cell2Rsrq = 0.0;
+double servingSinr = 0.0;
+
 
 bool handoverEvent = false;
 uint16_t handoverTargetCell = 0;
@@ -134,6 +137,15 @@ void ReportUeMeasurementsCallback (uint16_t rnti, uint16_t cellId, double rsrp, 
     }
 }
 
+void DlDataSinrCallback (
+    uint16_t cellId,
+    uint16_t rnti, 
+    double sinr,
+    uint16_t bwpId)
+{
+    servingSinr = 10.0 * std::log10(sinr);
+}
+
 int main (int argc, char* argv[])
 {
     double ueSpeed = 10.0;
@@ -199,6 +211,12 @@ int main (int argc, char* argv[])
     ueModel->SetVelocity(Vector(ueSpeed, 0.0, 0.0));
 
     Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
+
+    auto [remoteHost, remoteHostIpv4Address] = 
+        nrEpcHelper->SetupRemoteHost(
+            "100Gb/s",
+            2500,
+            Seconds(0));
     
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
@@ -265,6 +283,10 @@ int main (int argc, char* argv[])
     // Get the UE PHY
     Ptr<NrUePhy> uePhy = NrHelper::GetUePhy(ueDevices.Get(0), 0);
 
+    uePhy->TraceConnectWithoutContext(
+        "DlDataSinr",
+        MakeCallback(&DlDataSinrCallback));
+
     // Listen for UE radio measurements
     uePhy->TraceConnectWithoutContext(
         "ReportUeMeasurements", 
@@ -279,6 +301,32 @@ int main (int argc, char* argv[])
     std::cout << "UE IP address: "
               << ueIpIfaces.GetAddress(0)
               <<std::endl;
+    
+    // ---------------------------
+    //Downlink UDP traffic
+    //----------------------------
+    
+    uint16_t dlPort = 1234;
+
+    //UE receives the packets
+    UdpServerHelper dlServer(dlPort);
+
+    ApplicationContainer serverApps = dlServer.Install(ueNodes.Get(0));
+    
+    //Remote host sends packet to UE
+    UdpClientHelper dlClient(ueIpIfaces.GetAddress(0), dlPort);
+    dlClient.SetAttribute("MaxPackets", UintegerValue(0xFFFFFFFF));
+    dlClient.SetAttribute("Interval", TimeValue(MilliSeconds(10)));
+    dlClient.SetAttribute("PacketSize", UintegerValue(1024)); 
+
+    ApplicationContainer clientApps = dlClient.Install(remoteHost);
+
+    //Start traffic after network initialization
+    serverApps.Start(Seconds(1.0));
+    clientApps.Start(Seconds(1.0));
+
+    serverApps.Stop(Seconds(simTime));
+    clientApps.Stop(Seconds(simTime));
     
     //Connect handover traces
     Ptr<NrUeNetDevice> ueNetDevice = ueDevices.Get(0)->GetObject<NrUeNetDevice>();
@@ -317,6 +365,17 @@ int main (int argc, char* argv[])
 
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
+
+    Ptr<UdpServer> server = DynamicCast<UdpServer>(serverApps.Get(0));
+    std::cout << "UDP packets received: "
+              <<server->GetReceived()
+              << std::endl;
+    
+    std::cout << "Final serving SINR: "
+              <<servingSinr
+              << " dB"
+              << std::endl;       
+                 
     Simulator::Destroy();
     
     dataFile.close();
