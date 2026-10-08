@@ -41,5 +41,5 @@ print("Number of runs:", data["run_id"].nunique())
 print("\nTarget distribution")
 print(data["handover_next_1s"].value_counts())
 
-print("\n Dataset saved to: ")
+print("\nDataset saved to: ")
 print(output_path)

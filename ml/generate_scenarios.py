@@ -34,7 +34,7 @@ for speed in speeds:
                     f"scratch/ml-handover "
                     f"--speed={speed} "
                     f"--startX={start_x} "
-                    f"--simTime=60 "
+                    f"--simTime={simTime} "
                     f"--runId={run_id} "
                     f"--logInterval=0.2 "
                     f"--gNbDistance={gnb_distance} "

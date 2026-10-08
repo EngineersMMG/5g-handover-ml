@@ -28,6 +28,10 @@ for file_path in csv_files:
         file_path.stem
     )
 
+    speed = int(match.group(1))
+    start_x = int(match.group(2))
+    gnb_distance = int(match.group(3))
+
     data = pd.read_csv(file_path)
 
     if "run_id" not in data.columns:
