@@ -114,6 +114,7 @@ void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRr
              << servingRsrq << ","
              << neighborRsrq << ","
              << rsrpDifference << ","
+             << servingSinr << ","
              << handoverEvent << ","
              << handoverTargetCell << "\n";
     
@@ -179,7 +180,7 @@ int main (int argc, char* argv[])
     dataFile << "run_id,time_s,ue_x_m,speed_mps,serving_cell,"
              << "serving_rsrp,neighbor_rsrp,"
              << "serving_rsrq,neighbor_rsrq,"
-             << "rsrp_difference,"
+             << "rsrp_difference,serving_sinr_db,"
              << "handover_event,target_cell\n";
 
     NodeContainer gNbNodes; 
