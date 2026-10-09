@@ -21,6 +21,7 @@ double cell2Rsrp = 0.0;
 double cell1Rsrq = 0.0;
 double cell2Rsrq = 0.0;
 double servingSinr = 0.0;
+uint16_t previousRxPackets = 0;
 
 
 bool handoverEvent = false;
@@ -66,7 +67,12 @@ void PrintServingCell(Ptr<NrUeRrc> ueRrc)
     Simulator::Schedule(Seconds(5.0), &PrintServingCell, ueRrc);
 }
 
-void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRrc, uint32_t runId, double logInterval)
+void LogDatasetRow(
+    Ptr<ConstantVelocityMobilityModel> ueModel, 
+    Ptr<NrUeRrc> ueRrc, 
+    Ptr<UdpServer> udpServer,
+    uint32_t runId, 
+    double logInterval)
 {
     double time = Simulator::Now().GetSeconds();
     Vector position = ueModel->GetPosition();
@@ -103,6 +109,16 @@ void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRr
     }
 
     double rsrpDifference = neighborRsrp - servingRsrp;
+
+    uint64_t currentRxPackets = udpServer->GetReceived();
+
+    uint64_t packetsReceivedThisInterval = currentRxPackets - previousRxPackets;
+
+    double throughputMbps = 
+        (packetsReceivedThisInterval * 1024.0 * 8.0) /
+        (logInterval * 1e6);
+    
+    previousRxPackets = currentRxPackets;
     
     dataFile << runId << "," 
              << time << ","
@@ -115,13 +131,21 @@ void LogDatasetRow(Ptr<ConstantVelocityMobilityModel> ueModel, Ptr<NrUeRrc> ueRr
              << neighborRsrq << ","
              << rsrpDifference << ","
              << servingSinr << ","
+             << throughputMbps << ","
              << handoverEvent << ","
              << handoverTargetCell << "\n";
     
     handoverEvent = false;
     handoverTargetCell = 0;
     
-    Simulator::Schedule(Seconds(logInterval), &LogDatasetRow, ueModel, ueRrc, runId, logInterval);
+    Simulator::Schedule(
+        Seconds(logInterval), 
+        &LogDatasetRow, 
+        ueModel, 
+        ueRrc, 
+        udpServer,
+        runId, 
+        logInterval);
 }
 
 void ReportUeMeasurementsCallback (uint16_t rnti, uint16_t cellId, double rsrp, double rsrq, bool servingCell, uint8_t componentCarrierId)
@@ -180,7 +204,7 @@ int main (int argc, char* argv[])
     dataFile << "run_id,time_s,ue_x_m,speed_mps,serving_cell,"
              << "serving_rsrp,neighbor_rsrp,"
              << "serving_rsrq,neighbor_rsrq,"
-             << "rsrp_difference,serving_sinr_db,"
+             << "rsrp_difference,serving_sinr_db,throughput_mbps,"
              << "handover_event,target_cell\n";
 
     NodeContainer gNbNodes; 
@@ -313,6 +337,8 @@ int main (int argc, char* argv[])
     UdpServerHelper dlServer(dlPort);
 
     ApplicationContainer serverApps = dlServer.Install(ueNodes.Get(0));
+
+    Ptr<UdpServer> udpServer = DynamicCast<UdpServer>(serverApps.Get(0));
     
     //Remote host sends packet to UE
     UdpClientHelper dlClient(ueIpIfaces.GetAddress(0), dlPort);
@@ -350,7 +376,14 @@ int main (int argc, char* argv[])
     //Connect the two gNBs for handover
     nrHelper->AddX2Interface(gNbNodes);
 
-    Simulator::Schedule(Seconds(logInterval), &LogDatasetRow, ueModel,ueRrc, runId, logInterval);
+    Simulator::Schedule(
+        Seconds(logInterval), 
+        &LogDatasetRow, 
+        ueModel,
+        ueRrc, 
+        udpServer,
+        runId, 
+        logInterval);
 
     Simulator::Schedule(
     Seconds(1.0),
