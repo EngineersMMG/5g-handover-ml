@@ -6,6 +6,7 @@
 #include "ns3/isotropic-antenna-model.h"
 #include "ns3/propagation-module.h"
 #include "ns3/applications-module.h"
+#include "ns3/seq-ts-header.h"
 
 #include <iostream>
 #include <fstream>
@@ -21,8 +22,9 @@ double cell2Rsrp = 0.0;
 double cell1Rsrq = 0.0;
 double cell2Rsrq = 0.0;
 double servingSinr = 0.0;
-uint16_t previousRxPackets = 0;
-
+uint64_t previousRxPackets = 0;
+double intervalDelaySumMs = 0.0;
+uint64_t intervalDelayPackets = 0;
 
 bool handoverEvent = false;
 uint16_t handoverTargetCell = 0;
@@ -119,6 +121,13 @@ void LogDatasetRow(
         (logInterval * 1e6);
     
     previousRxPackets = currentRxPackets;
+   
+    double averageDelayMs = 0.0;
+
+    if (intervalDelayPackets > 0)
+    {
+        averageDelayMs = intervalDelaySumMs / intervalDelayPackets;
+    }
     
     dataFile << runId << "," 
              << time << ","
@@ -132,12 +141,19 @@ void LogDatasetRow(
              << rsrpDifference << ","
              << servingSinr << ","
              << throughputMbps << ","
+             << averageDelayMs << ","
              << handoverEvent << ","
              << handoverTargetCell << "\n";
-    
+
+    // Reset handover event for the next logging interval
     handoverEvent = false;
     handoverTargetCell = 0;
+
+    // Reset delay statistics for the next logging interval
+    intervalDelaySumMs = 0.0;
+    intervalDelayPackets = 0;
     
+    // Schedule next dataset row
     Simulator::Schedule(
         Seconds(logInterval), 
         &LogDatasetRow, 
@@ -169,6 +185,23 @@ void DlDataSinrCallback (
     uint16_t bwpId)
 {
     servingSinr = 10.0 * std::log10(sinr);
+}
+
+void UdpDelayCallback(
+    Ptr<const Packet> packet,
+    const Address& from,
+    const Address& to)
+{
+    Ptr<Packet> copy = packet->Copy();
+
+    SeqTsHeader seqTs;
+    copy->RemoveHeader(seqTs);
+
+    double delayMs =
+        (Simulator::Now() - seqTs.GetTs()).GetSeconds() * 1000.0;
+
+    intervalDelaySumMs += delayMs;
+    intervalDelayPackets++;
 }
 
 int main (int argc, char* argv[])
@@ -204,7 +237,7 @@ int main (int argc, char* argv[])
     dataFile << "run_id,time_s,ue_x_m,speed_mps,serving_cell,"
              << "serving_rsrp,neighbor_rsrp,"
              << "serving_rsrq,neighbor_rsrq,"
-             << "rsrp_difference,serving_sinr_db,throughput_mbps,"
+             << "rsrp_difference,serving_sinr_db,throughput_mbps,average_delay_ms,"
              << "handover_event,target_cell\n";
 
     NodeContainer gNbNodes; 
@@ -339,6 +372,7 @@ int main (int argc, char* argv[])
     ApplicationContainer serverApps = dlServer.Install(ueNodes.Get(0));
 
     Ptr<UdpServer> udpServer = DynamicCast<UdpServer>(serverApps.Get(0));
+    udpServer->TraceConnectWithoutContext("RxWithAddresses",MakeCallback(&UdpDelayCallback));    
     
     //Remote host sends packet to UE
     UdpClientHelper dlClient(ueIpIfaces.GetAddress(0), dlPort);
