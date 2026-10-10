@@ -121,7 +121,22 @@ void LogDatasetRow(
         (logInterval * 1e6);
     
     previousRxPackets = currentRxPackets;
-   
+
+    uint32_t lostPackets = udpServer->GetLost();
+
+    uint64_t receivedPackets = udpServer->GetReceived();
+
+    double packetLossRate = 0.0;
+
+    uint64_t totalPackets = receivedPackets + lostPackets;
+
+    if (totalPackets > 0)
+    {
+        packetLossRate = 
+        static_cast<double>(lostPackets) /
+        static_cast<double>(totalPackets);
+    }
+
     double averageDelayMs = 0.0;
 
     if (intervalDelayPackets > 0)
@@ -142,6 +157,7 @@ void LogDatasetRow(
              << servingSinr << ","
              << throughputMbps << ","
              << averageDelayMs << ","
+             << packetLossRate << ","
              << handoverEvent << ","
              << handoverTargetCell << "\n";
 
@@ -237,7 +253,8 @@ int main (int argc, char* argv[])
     dataFile << "run_id,time_s,ue_x_m,speed_mps,serving_cell,"
              << "serving_rsrp,neighbor_rsrp,"
              << "serving_rsrq,neighbor_rsrq,"
-             << "rsrp_difference,serving_sinr_db,throughput_mbps,average_delay_ms,"
+             << "rsrp_difference,serving_sinr_db,throughput_mbps,"
+             << "average_delay_ms,packet_loss_rate,"
              << "handover_event,target_cell\n";
 
     NodeContainer gNbNodes; 
@@ -442,7 +459,11 @@ int main (int argc, char* argv[])
     std::cout << "Final serving SINR: "
               <<servingSinr
               << " dB"
-              << std::endl;       
+              << std::endl;
+    
+    std::cout << "Packet lost: "
+              << udpServer->GetLost()
+              << std::endl;    
                  
     Simulator::Destroy();
     
