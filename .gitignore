@@ -16,5 +16,7 @@ models/*.joblib
 # OS files
 .DS_Store
 Thumbs.db
-data/processed/combined-scenarios.csv
+
 data/raw/scenarios/
+data/processed/combined-scenarios.csv
+data/processed/ml-dataset.csv
