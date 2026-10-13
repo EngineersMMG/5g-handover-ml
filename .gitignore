@@ -20,3 +20,4 @@ Thumbs.db
 data/raw/scenarios/
 data/processed/combined-scenarios.csv
 data/processed/ml-dataset.csv
+data/processed/feature-dataset.csv
