@@ -97,9 +97,9 @@ best_index = np.argmax(f1_scores)
 best_threshold = thresholds[best_index]
 
 print("Best threshold:", best_threshold)
-print("Best F1", f1_scores[best_index])
-print("Precision at best threshold", precisions[best_index])
-print("Recall at best threshold", recalls[best_index])
+print("Best F1:", f1_scores[best_index])
+print("Precision at best threshold:", precisions[best_index])
+print("Recall at best threshold:", recalls[best_index])
 
 y_pred_tuned = (y_prob >= best_threshold).astype(int)
 
@@ -120,11 +120,11 @@ print(
     f1_score(y_validation, y_pred_tuned)
 )
 print(
-    "Default accuracy",
+    "Default accuracy:",
     accuracy_score(y_validation, y_pred)
 )
 print(
-    "Tuned accuracy",
+    "Tuned accuracy:",
     accuracy_score(y_validation, y_pred_tuned)
 )
 
