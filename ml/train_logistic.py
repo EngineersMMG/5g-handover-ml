@@ -24,13 +24,15 @@ print("Validation rows:", len(validation_data))
 
 target = "handover_next_1s"
 
+metadata_columns = ["scenario_id", "run_id", "repeat_id", "time_s", "handover_event", target]
+
 X_train = train_data.drop(
-    columns=["scenario_id", "run_id", "repeat_id", target]
+    columns=metadata_columns
 )
 y_train = train_data[target]
 
 X_validation = validation_data.drop(
-    columns=["scenario_id", "run_id", "repeat_id", target]
+    columns=metadata_columns
 )
 y_validation = validation_data[target]
 

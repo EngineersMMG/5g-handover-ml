@@ -88,6 +88,8 @@ metadata_columns = [
     "scenario_id",
     "run_id", 
     "repeat_id",
+    "time_s",
+    "handover_event"
 ]
 
 base_features = [
