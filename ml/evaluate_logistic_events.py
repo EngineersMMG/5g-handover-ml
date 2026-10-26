@@ -331,3 +331,129 @@ miss_analysis_df = pd.DataFrame(miss_analysis)
 
 print("\n===== Evaluable Missed Handover Analysis =====")
 print(miss_analysis_df.to_string(index=False))
+
+inspect_run_id = 4141
+inspect_handover_time = 10
+
+inspect_run = validation_data[validation_data["run_id"] == inspect_run_id].copy()
+inspect_window = inspect_run[
+    (inspect_run["time_s"] >= inspect_handover_time - 1.0)
+    &
+    (inspect_run["time_s"] < inspect_handover_time)
+]
+
+inspect_columns = [
+    "time_s",
+    "handover_probability",
+    "serving_rsrp",
+    "neighbor_rsrp",
+    "rsrp_difference",
+    "serving_sinr_db",
+    "throughput_mbps",
+    "average_delay_ms",
+    "packet_loss_rate",
+    "speed_mps",
+]
+print("\n===== Run 4141: 1 s Before Missed Handover ======")
+print(inspect_window[inspect_columns].to_string(index=False))
+
+trend_columns = [
+    "time_s",
+    "handover_probability",
+    "serving_rsrp",
+    "neighbor_rsrp",
+    "rsrp_difference",
+    "serving_rsrp_change_0_2s",
+    "neighbor_rsrp_change_0_2s",
+    "rsrp_difference_change_0_2s",
+    "serving_rsrp_mean_1s",
+    "neighbor_rsrp_mean_1s",
+    "rsrp_difference_mean_1s",
+]
+print("\n===== Run 4141: Trend Feature Before Handover =====")
+print(inspect_window[trend_columns].to_string(index=False))
+
+handover_window = inspect_run[
+    (inspect_run["time_s"] >= inspect_handover_time - 4.0)
+    &
+    (inspect_run["time_s"] <= inspect_handover_time + 4.0)
+]
+columns = [
+    "time_s",
+    "handover_probability",
+    "serving_rsrp",
+    "neighbor_rsrp",
+    "rsrp_difference",
+    "serving_rsrq",
+    "neighbor_rsrq",
+    "serving_cell_is_2",
+    "handover_event",
+]
+
+print(handover_window[columns].to_string(index=False))
+
+handover_rows = inspect_run[
+    inspect_run["handover_event"] == 1
+][
+    ["time_s", "serving_cell_is_2"]
+].copy()
+
+handover_rows["time_since_previous_ho"] = (
+    handover_rows["time_s"].diff()
+)
+
+print(handover_rows.to_string(index=False))
+
+handover_rows["ping_pong_1s"] = (
+    (handover_rows["time_since_previous_ho"] <= 1.0)
+    &
+    (
+        handover_rows["serving_cell_is_2"]
+        == handover_rows["serving_cell_is_2"].shift(2)
+    )
+    &
+    (
+        handover_rows["serving_cell_is_2"]
+        != handover_rows["serving_cell_is_2"].shift(1)
+    )
+)
+
+print(
+    handover_rows[
+        [
+            "time_s",
+            "serving_cell_is_2",
+            "time_since_previous_ho",
+            "ping_pong_1s"
+        ]
+    ].to_string(index=False)
+)
+print("\nTotal ping-pong reversals:", handover_rows["ping_pong_1s"].sum())
+
+total_handovers = 0
+total_ping_pongs = 0
+
+for run_id, run_data in validation_data.groupby("run_id"):
+
+    events = run_data[
+        run_data["handover_event"] == 1
+    ].sort_values("time_s").copy()
+
+    events["time_since_previous_ho"] = events["time_s"].diff()
+
+    events["ping_pong_1s"] = (
+        (events["time_since_previous_ho"] <= 1.0)
+        &
+        (events["serving_cell_is_2"] != events["serving_cell_is_2"].shift(1))
+    )
+
+    total_handovers += len(events)
+    total_ping_pongs += events["ping_pong_1s"].sum()
+
+print("\n====== Validation Ping-Pong Analysis ======")
+print("Total handovers:", total_handovers)
+print("Ping-Pong reversals (1s):", total_ping_pongs)
+
+if total_handovers > 0: 
+    ping_pong_rate = 100 * total_ping_pongs / total_handovers
+    print(f"Ping-pong rate: {ping_pong_rate:.2f}%") 
