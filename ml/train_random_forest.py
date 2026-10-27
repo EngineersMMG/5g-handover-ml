@@ -19,20 +19,34 @@ print("Validation rows:", len(validation_data))
 
 target = "handover_next_1s"
 
-X_train = train_data.drop(
-    columns=["scenario_id", "run_id", "repeat_id", target]
-)
+metadata_columns = [
+    "scenario_id",
+    "run_id",
+    "repeat_id",
+    "time_s",
+    "handover_event",
+    target
+]
+
+X_train = train_data.drop(columns=metadata_columns)
 y_train = train_data[target]
 
-X_validation = validation_data.drop(
-    columns=["scenario_id", "run_id", "repeat_id", target]
-)
+X_validation = validation_data.drop(columns=metadata_columns)
 y_validation = validation_data[target]
 
 print("X train shape:", X_train.shape)
 print("y train shape:", y_train.shape)
 print("X validation shape:", X_validation.shape)
 print("y validation shape:", y_validation.shape)
+
+print("\n===== RANDOM FOREST FEATURE CHECK ========")
+print("Training features:", X_train.shape[1])
+print("Validation features:", X_validation.shape[1])
+
+assert X_train.shape[1] == 30
+assert X_train.columns.equals(X_validation.columns)
+
+print("Feature check passed!")
 
 model = RandomForestClassifier(
     n_estimators=100,
