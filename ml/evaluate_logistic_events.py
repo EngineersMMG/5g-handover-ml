@@ -3,7 +3,7 @@ import numpy as np
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import precision_recall_curve, average_precision_score
 
 def handover_was_detected(
     run_data, 
@@ -128,6 +128,10 @@ model = LogisticRegression(
 print("Training tuned Logistic Regression...")
 model.fit(X_train_scaled, y_train)
 print("Training complete")
+
+print("\n========= Logistic Regression Convergence =========")
+print("Maximum iteration:", model.max_iter)
+print("Iteration used:", model.n_iter_[0])
 
 y_prob_validation = model.predict_proba(
     X_validation_scaled
@@ -432,6 +436,8 @@ print("\nTotal ping-pong reversals:", handover_rows["ping_pong_1s"].sum())
 
 total_handovers = 0
 total_ping_pongs = 0
+event_detection_rows = []
+ping_pong_warning_results = []
 
 for run_id, run_data in validation_data.groupby("run_id"):
 
@@ -447,8 +453,60 @@ for run_id, run_data in validation_data.groupby("run_id"):
         (events["serving_cell_is_2"] != events["serving_cell_is_2"].shift(1))
     )
 
+    events["previous_ho_time"] = events["time_s"].shift(1)
+
     total_handovers += len(events)
     total_ping_pongs += events["ping_pong_1s"].sum()
+
+    for _, event in events.iterrows():
+
+        detected = handover_was_detected(
+            run_data,
+            event["time_s"]
+        )
+
+        event_detection_rows.append({
+            "category": "Ping-pong" if event["ping_pong_1s"] else "Other",
+            "detected": detected
+        })
+
+        if event["ping_pong_1s"]:
+
+            between_handovers = run_data[
+                (run_data["time_s"] > event["previous_ho_time"])
+                &
+                (run_data["time_s"] < event["time_s"])
+            ]
+
+            alarm_sequence = run_data[
+                (run_data["time_s"] >= event["previous_ho_time"])
+                &
+                (run_data["time_s"] < event["time_s"])
+            ].sort_values("time_s")
+
+            fresh_alarm = (
+                (alarm_sequence["prediction"] == 1)
+                &
+                (alarm_sequence["prediction"].shift(1) == 0)
+            ).any()
+
+            ping_pong_warning_results.append({
+                "has_samples": not between_handovers.empty,
+                "detected": (
+                    between_handovers["prediction"] == 1
+                ).any(),
+                "fresh_alarm": bool(fresh_alarm)
+            }) 
+
+event_detection_df = pd.DataFrame(event_detection_rows)
+comparison = event_detection_df.groupby("category")["detected"].agg(
+    total_events="count",
+    detected_events="sum",
+    event_recall="mean"
+)
+
+print("\n====== Logistic Detection By Handover Type ======")
+print(comparison.to_string())
 
 print("\n====== Validation Ping-Pong Analysis ======")
 print("Total handovers:", total_handovers)
@@ -457,3 +515,34 @@ print("Ping-Pong reversals (1s):", total_ping_pongs)
 if total_handovers > 0: 
     ping_pong_rate = 100 * total_ping_pongs / total_handovers
     print(f"Ping-pong rate: {ping_pong_rate:.2f}%") 
+
+pp_results = pd.DataFrame(ping_pong_warning_results)
+print("\n====== Independent Ping-Pong Warning Analysis =======")
+print("Total ping-pongs:", len(pp_results))
+print("Detected after previous HO:", pp_results["detected"].sum())
+print("No intermediate samples:", (~pp_results["detected"]).sum())
+print("Ping-pong with fresh alarm:", pp_results["fresh_alarm"].sum())
+
+assert len(pp_results) == total_ping_pongs
+
+selected_result = event_results_df[event_results_df["target_recall"] == 0.624].iloc[0]
+
+precision = selected_result["row_precision"]
+recall = selected_result["row_recall"]
+
+f1 = 2 * precision * recall / (precision + recall)
+
+ap = average_precision_score(y_validation, y_prob_validation)
+
+print("\n====== LOGISTIC REGRESSION SUMMARY ==========")
+print(f"Threshold: {candidate_threshold:.6f}")
+print(f"Average Precision: {ap:.4f}")
+print(f"Row Precision: {precision:.4f}")
+print(f"Row Recall: {recall:.4f}")
+print(f"Row F1 Score: {f1:.4f}")
+print(f"Event Recall: {selected_result['event_recall']:.4%}")
+print(f"Episode Precision: {selected_result['episode_precision']:.4%}")
+print(f"Detected Handovers: {selected_result['detected_handovers']}")
+print(f"Missed Handovers: {selected_result['missed_handovers']}")
+print(f"Ping-Pong Rate: {ping_pong_rate:.2f}%")
+print("=======================================================")
