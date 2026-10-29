@@ -128,3 +128,151 @@ feature_importance = feature_importance.sort_values(
     ascending=False
 )
 print(feature_importance.head(10))
+
+validation_data["prediction"] = y_pred_tuned
+
+detected_events = 0
+missed_events = 0
+
+for run_id, run_data in validation_data.groupby("run_id"):
+
+    handover_times = run_data.loc[
+        run_data["handover_event"] == 1,
+        "time_s"
+    ]
+
+    for handover_time in handover_times:
+
+        prior_window = run_data[
+            (run_data["time_s"] >= handover_time - 1.0)
+            &
+            (run_data["time_s"] < handover_time)
+        ]
+
+        if (prior_window["prediction"] == 1).any():
+            detected_events += 1
+
+        else:
+            missed_events += 1
+
+total_events = missed_events + detected_events
+
+print("\n======= RANDOM FOREST EVENT DETECTION ========")
+print("Detected handovers:", detected_events)
+print("Missed handovers:", missed_events)
+print(f"Event recall: {detected_events / total_events:.4%}")
+
+useful_episodes = 0 
+false_episodes = 0 
+
+for run_id, run_data in validation_data.groupby("run_id"):
+
+    run_data = run_data.sort_values("time_s")
+
+    alarms = run_data["prediction"] == 1
+
+    episode_ids = alarms.ne(
+        alarms.shift(fill_value=False)
+    ).cumsum()
+
+    handover_times = run_data.loc[
+        run_data["handover_event"] == 1,
+        "time_s"
+        ].to_numpy()
+
+    for _, episode in run_data.loc[alarms].groupby(episode_ids[alarms]):
+
+            start_time = episode["time_s"].iloc[0]
+            end_time = episode["time_s"].iloc[-1]
+
+            useful = any(
+                start_time < ho_time <= end_time + 1.0
+                for ho_time in handover_times
+            )
+
+            if useful: 
+                useful_episodes += 1
+            
+            else: 
+                false_episodes += 1
+
+total_episodes = false_episodes + useful_episodes
+
+print("\n======== RANDOM FOREST ALARM ANALYSIS =======")
+print("Useful episodes:", useful_episodes)
+print("False alarm episodes:", false_episodes)
+print("Total alarm episodes:", total_episodes)
+
+if total_episodes > 0:
+    print(
+        f"Episode precision: "
+        f"{100 * useful_episodes / total_episodes:.2f}%"
+    )
+
+candidate_thresholds = [best_threshold, 0.68, 0.72, 0.76, 0.80]
+
+threshold_results = []
+
+for threshold in candidate_thresholds:
+
+    validation_data["prediction"] = (y_prob >= threshold).astype(int)
+
+    detected = 0
+    useful = 0 
+    false = 0
+
+    for run_id, run_data in validation_data.groupby("run_id"):
+
+        run_data = run_data.sort_values("time_s")
+
+        handover_times = run_data.loc[
+            run_data["handover_event"] == 1, 
+            "time_s"
+        ].to_numpy()
+
+        for ho_time in handover_times:
+
+            prior_window = run_data[
+                (run_data["time_s"] >= ho_time - 1.0)
+                &
+                (run_data["time_s"] < ho_time)
+            ]
+
+            if (prior_window["prediction"] == 1).any():
+                detected += 1
+            
+            alarms = run_data["prediction"] == 1
+
+            episode_ids = alarms.ne(alarms.shift(fill_value=False)).cumsum()
+
+            for _, episode in run_data.loc[alarms].groupby(episode_ids[alarms]):
+
+                start = episode["time_s"].iloc[0]
+                end = episode["time_s"].iloc[-1]
+
+                is_useful = any(
+                    start < ho_time <= end + 1.0
+                    for ho_time in handover_times
+                )
+
+                if is_useful: 
+                    useful += 1
+            
+                else: 
+                    false += 1
+
+            threshold_results.append({
+                "threshold": threshold,
+                "event_recall": detected / total_events,
+                "detected_handovers": detected,
+                "missed_handovers": total_events - detected,
+                "useful_episodes": useful,
+                "false_episodes": false,
+                "episode_precision": useful / (useful + false)
+                if useful + false > 0 else 0
+            })        
+
+threshold_results_df = pd.DataFrame(threshold_results)
+
+print("\n======= RANDOM FOREST THRESHOLD COMPARISON =======")
+print(threshold_results_df.to_string(index=False))
