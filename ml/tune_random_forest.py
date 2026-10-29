@@ -36,8 +36,9 @@ print("Cross-validation folds:", cv.n_splits)
 assert X_train.shape[1] == 30
 
 configurations = [
-    {"max_depth": 20, "min_sample_leaf": 1}, 
-    {"max_depth": 12, "min_sample_leaf": 5}, 
+    {"max_depth": 10, "min_samples_leaf": 5}, 
+    {"max_depth": 12, "min_samples_leaf": 10}, 
+    {"max_depth": 16, "min_samples_leaf": 5}, 
 ]
 
 results = []
@@ -53,7 +54,7 @@ for config in configurations:
         model = RandomForestClassifier(
             n_estimators=100,
             max_depth=config["max_depth"],
-            min_sample_leaf=config["min_sample_leaf"],
+            min_samples_leaf=config["min_samples_leaf"],
             class_weight="balanced_subsample",
             n_jobs=2, 
             random_state=42
@@ -67,3 +68,26 @@ for config in configurations:
         probabilities = model.predict_proba(
             X_train.iloc[val_idx]
         )[:, 1]
+
+        ap = average_precision_score(y_train.iloc[val_idx], probabilities)
+        
+        fold_scores.append(ap)
+
+        print(f"Config: {config} | Fold: {fold} | AP: {ap}")
+
+    mean_ap = sum(fold_scores) / len(fold_scores)
+
+    results.append({
+        **config,
+        "mean_ap": mean_ap
+    })
+
+results_df = pd.DataFrame(results)
+
+print("\n====== RANDOM FOREST CV RESULTS =====")
+print(
+    results_df.sort_values(
+        "mean_ap",
+        ascending=False
+    ).to_string(index=False)
+)
